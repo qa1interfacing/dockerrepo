@@ -1,0 +1,92 @@
+version: '3'
+
+services:
+  bpcapp:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/bpcapp
+    restart: unless-stopped
+    environment:
+      - BPC_DS_SERVER
+      - BPC_DS_PORT
+      - BPC_DS_DB
+      - BPC_DS_USER
+      - BPC_DS_PASSWORD
+      - BPC_DS_UNICODE=true
+      - BPC_TIMEZONE=America/New_York
+      - BPC_EPC_URL
+      - BPC_JAVA_OPTS=-Xms256m -Xmx1024m
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/bpc/rest/info/ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+    volumes:
+      - config:/config
+
+  webapp:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/webapp
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    volumes:
+      - logs:/tmp
+      - config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/info/ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  nginx:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/nginx
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    volumes:
+      - logs:/tmp
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/nginx-ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  search:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/search
+    restart: unless-stopped
+    environment:
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-s", "http://localhost:9200/"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  unoconv:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/unoconv
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+
+volumes:
+  logs:
+  config:

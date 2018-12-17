@@ -1,0 +1,34 @@
+version: '3'
+
+services:
+  bpcapp:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/bpcapp:latest
+    volumes:
+        - /volumes/brown/javamelody:/tmp/javamelody
+    environment:
+      - BPC_DS_SERVER=brown.interfacing.local
+      - BPC_DS_PORT=1433
+      - BPC_DS_DB=epc5
+      - BPC_DS_USER=sa
+      - BPC_DS_PASSWORD=5epc!ad
+      - BPC_EPC_URL=http://brown.interfacing.local
+      - BPC_DS_UNICODE=true
+
+  webapp:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/webapp:latest
+
+  nginx:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/nginx:latest
+    ports:
+      - 28080:80
+      - 28081:443
+    volumes:
+      - /volumes/brown/nginx:/etc/nginx/shared-config
+
+  search:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/search:latest
+    volumes:
+        - /volumes/brown/elasticsearch/data:/usr/share/elasticsearch/data
+
+  unoconv:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/unoconv:latest

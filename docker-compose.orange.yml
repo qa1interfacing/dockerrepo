@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  bpcapp:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/bpcapp:latest
+    volumes:
+        - /volumes/orange/javamelody:/tmp/javamelody
+    environment:
+      - BPC_DS_SERVER=cibuild2
+      - BPC_DS_PORT=1455
+      - BPC_DS_DB=epc5
+      - BPC_DS_USER=sa
+      - BPC_DS_PASSWORD=5epc!ad
+      - BPC_EPC_URL=http://orange.interfacing.local
+
+  webapp:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/webapp:latest
+
+  nginx:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/nginx:latest
+    ports:
+      - 48080:80
+      - 48081:443
+    healthcheck:
+        test: ["CMD", "wget", "-q", "-s", "http://localhost/nginx-ping"]
+        interval: 10s
+        timeout: 10s
+        retries: 20
+    volumes:
+      - /volumes/orange/nginx:/etc/nginx/shared-config
+
+  search:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/search:latest
+    volumes:
+        - /volumes/orange/elasticsearch/data:/usr/share/elasticsearch/data
+
+
+  unoconv:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/unoconv:latest
