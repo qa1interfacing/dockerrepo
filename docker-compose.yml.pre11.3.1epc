@@ -1,0 +1,149 @@
+version: '3'
+
+services:
+  bpcapp:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/bpcapp:11.2.0
+    restart: unless-stopped
+    environment:
+      - BPC_DS_SERVER=qa.interfacing.local
+      - BPC_DS_PORT=1433
+      - BPC_DS_SUFFIX
+      - BPC_DS_USER=sa
+      - BPC_DS_PASSWORD=5epc!ad
+      - BPC_DS_UNICODE=true
+      - BPC_DS_FILESTREAM_DISABLED=0
+      - BPC_TIMEZONE=UTC
+      - BPC_EPC_URL=http://epc:8080
+      - BPC_JAVA_OPTS=-Xms256m -Xmx1024m
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    volumes:
+      - /volumes/javamelody:/tmp/javamelody
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/bpc/rest/info/ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+    volumes:
+      - config:/config
+
+  webapp:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/webapp:11.2.0
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    volumes:
+      - logs:/tmp
+      - config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/info/ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  nginx:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/nginx:11.2.0
+    restart: unless-stopped
+    environment:
+      - EPC_DOCKER_ENABLED=0
+    ports:
+      - 8080:80
+      - 443:443
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    volumes:
+      - logs:/tmp
+      - /volumes/nginx:/etc/nginx/shared-config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/nginx-ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  search:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/search:11.2.0
+    restart: unless-stopped
+    environment:
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    volumes:
+      - /volumes/elasticsearch/data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-s", "http://localhost:9200/"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+
+
+  epc:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/epc:11.2.0
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/epc-rest-service/api/v1/info/ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+    ports:
+      - 80:8080
+    volumes:
+      - /volumes/epc/javamelody:/tmp/javamelody
+      - /volumes/epc/config:/epc/config
+      - /volumes/epc/data:/epc/data
+    environment:
+      - EPC_DS_SERVER=qa.interfacing.local
+      - EPC_DS_PORT=1433
+      - EPC_DS_SUFFIX
+      - EPC_DS_USER=sa
+      - EPC_DS_PASSWORD=5epc!ad
+      - EPC_DS_UNICODE=true
+      - EPC_TIMEZONE=UTC
+      - EPC_JAVA_OPTS=-Xms256m -Xmx2048m
+
+  unoconv:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/unoconv:11.2.0
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/unoconv/versions"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  portainer:
+    image: portainer/portainer
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    command: --admin-password $$2y$$05$$gaLhVsbU7vDFLleXnlpWluVBM6mH6mFhuLqQbQDlSMh0MjwqVlmiq
+
+
+volumes:
+  logs:
+  config:

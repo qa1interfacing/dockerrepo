@@ -2,7 +2,7 @@ version: '3'
 
 services:
   bpcapp:
-    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/bpcapp:latest
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/bpcapp:11.2.0
     restart: unless-stopped
     environment:
       - BPC_DS_SERVER=sql
@@ -14,28 +14,27 @@ services:
       - BPC_DS_FILESTREAM_DISABLED=1
       - BPC_TIMEZONE=UTC
       - BPC_EPC_URL=http://epc:8080
-      - BPC_WEBAPP_URL=http://webapp:3000
-      - BPC_JAVA_OPTS=-Xms256m -Xmx1g
-
+      - BPC_JAVA_OPTS=-Xms256m -Xmx1024m
     logging:
       driver: json-file
       options:
         max-size: "100m"
         max-file: "1"
     volumes:
-      - config:/config
       - /volumes/javamelody:/tmp/javamelody
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/bpc/rest/info/ping"]
       interval: 10s
       timeout: 10s
       retries: 20
+    volumes:
+      - config:/config
 
   webapp:
-    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/webapp:latest
-    restart: unless-stopped
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/webapp:11.2.0
     environment:
       - NODE_ENV=production
+    restart: unless-stopped
     logging:
       driver: json-file
       options:
@@ -51,12 +50,12 @@ services:
       retries: 20
 
   nginx:
-    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/nginx:latest
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/nginx:11.2.0
     restart: unless-stopped
     environment:
-      - EPC_DOCKER_ENABLED=1
+      - EPC_DOCKER_ENABLED=0
     ports:
-      - 80:80
+      - 8080:80
       - 443:443
     logging:
       driver: json-file
@@ -73,33 +72,56 @@ services:
       retries: 20
 
   search:
-    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/search:latest
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/search:11.2.0
     restart: unless-stopped
     environment:
-    - bootstrap.memory_lock=true
-    - ES_JAVA_OPTS=-Xms512m -Xmx512m
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 65536
-        hard: 65536
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
     logging:
       driver: json-file
       options:
         max-size: "100m"
         max-file: "1"
     volumes:
-    - esdata:/usr/share/elasticsearch/data
+      - /volumes/elasticsearch/data:/usr/share/elasticsearch/data
     healthcheck:
       test: ["CMD", "wget", "-q", "-s", "http://localhost:9200/"]
       interval: 10s
       timeout: 10s
       retries: 20
 
+
+
+  epc:
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/epc:11.2.0
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "1"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/epc-rest-service/api/v1/info/ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+    ports:
+      - 80:8080
+    volumes:
+      - /volumes/epc/javamelody:/tmp/javamelody
+      - /volumes/epc/config:/epc/config
+      - /volumes/epc/data:/epc/data
+    environment:
+      - EPC_DS_SERVER=sql
+      - EPC_DS_PORT=1433
+      - EPC_DS_SUFFIX
+      - EPC_DS_USER=sa
+      - EPC_DS_PASSWORD=5epc1ADD0itc
+      - EPC_DS_UNICODE=true
+      - EPC_TIMEZONE=UTC
+      - EPC_JAVA_OPTS=-Xms256m -Xmx2048m
+
   unoconv:
-    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/unoconv:latest    
+    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/unoconv:11.2.0
     restart: unless-stopped
     logging:
       driver: json-file
@@ -112,32 +134,6 @@ services:
       timeout: 10s
       retries: 20
 
-  epc:
-    image: 931251277748.dkr.ecr.us-east-1.amazonaws.com/epc:latest
-    restart: unless-stopped
-    environment:
-    - EPC_DS_SERVER=sql
-    - EPC_DS_PORT=1433
-    - EPC_DS_SUFFIX
-    - EPC_DS_USER=sa
-    - EPC_DS_PASSWORD=5epc1ADD0itc
-    - EPC_DS_UNICODE=true
-    - EPC_TIMEZONE=UTC
-    - EPC_JAVA_OPTS=-Xms256m -Xmx2g
-    logging:
-      driver: json-file
-      options:
-        max-size: "100m"
-        max-file: "1"
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/epc-rest-service/api/v1/info/ping"]
-      interval: 10s
-      timeout: 10s
-      retries: 20
-    volumes:
-    - /volumes/epc/javamelody:/tmp/javamelody
-    - /volumes/epc/config:/epc/config
-    - /volumes/epc/data:/epc/data
 
   sql:
     image: microsoft/mssql-server-linux:2017-GA
@@ -154,7 +150,17 @@ services:
     - MSSQL_PID=Express
     - MSSQL_BACKUP_DIR=/var/opt/mssql/backups
 
+
+  portainer:
+    image: portainer/portainer
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    command: --admin-password $$2y$$05$$gaLhVsbU7vDFLleXnlpWluVBM6mH6mFhuLqQbQDlSMh0MjwqVlmiq
+
+
 volumes:
   logs:
   config:
-  esdata:
